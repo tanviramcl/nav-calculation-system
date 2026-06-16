@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NAVCalculationSystem", "NAVCalculationSystem.csproj", "{A603FAFC-F0F5-66D7-C1BB-BFCCD654466A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A603FAFC-F0F5-66D7-C1BB-BFCCD654466A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A603FAFC-F0F5-66D7-C1BB-BFCCD654466A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A603FAFC-F0F5-66D7-C1BB-BFCCD654466A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A603FAFC-F0F5-66D7-C1BB-BFCCD654466A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A576F340-0889-401C-BC9E-301282A32E67}
+	EndGlobalSection
+EndGlobal

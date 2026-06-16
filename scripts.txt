@@ -1,0 +1,245 @@
+Step 1: git clone 
+Step 2: dotnet restore jwt-token-based-backend.sln
+step 3: dotnet watch run
+
+
+
+CREATE TABLE FIXED_INCOME_RECEIVABLE (
+    ID                                   NUMBER(12)      NOT NULL,
+    FUND_CD                              NUMBER(3)       NOT NULL,
+    COMP_CD                              NUMBER(10)      NOT NULL,
+    RECEIVABLE_INSTRUMENT_TYPE           VARCHAR2(10)    NOT NULL,
+    NO_OF_DAYS                           NUMBER(4)       NOT NULL,
+    CAL_DATE                             DATE            NOT NULL,
+    RECEIVABLE_AMOUNT                   NUMBER(12,2)    NOT NULL,
+    RECEIVABLE_CAL_ENTRY_BY     VARCHAR2(15)    NOT NULL,
+    RECEIVABLE_CAL_ENTRY_DATE   DATE            NOT NULL,
+    ACC_VOUCHER_NO                      VARCHAR2(20),
+    ACC_VOUCHER_ENTRY_BY                VARCHAR2(15),
+    ACC_VOUCHER_ENTRY_DATE              DATE,
+    VALID                               VARCHAR2(1),
+    EDIT_TYPE                           VARCHAR2(1),
+    EDIT_BY                             VARCHAR2(15),
+    EDIT_BY_DATE                        DATE,
+
+    CONSTRAINT PK_FIXED_INCOME_RECEIVABLE PRIMARY KEY (ID)
+);
+
+
+CREATE TABLE RECEIVABLE_INSTRUMENT_TYPE (
+    ID        NUMBER(12)        NOT NULL,
+    INSTRUMENT_NAME  VARCHAR2(50 BYTE) NOT NULL,
+    INSTRUMENT_CODE  VARCHAR2(10 BYTE) NOT NULL,
+    
+    CONSTRAINT PK_RECEIVABLE_CAL_TYPE PRIMARY KEY (ID)
+);
+
+
+added rate and date columns in comp table 
+ALTER TABLE COMP
+ADD (
+    BOND_RATE           NUMBER(12,4),
+    BOND_MATURITY_DATE  DATE
+);
+
+
+ALTER TABLE INVEST.FIXED_INCOME_RECEIVABLE
+ADD (
+    NO_OF_SHARE NUMBER(12,2),
+    RATE        NUMBER(12,4)
+);
+
+
+ALTER TABLE INVEST.FIXED_INCOME_RECEIVABLE
+ADD (
+  RCD_ACC_VOUCHER_NO           VARCHAR2(20 BYTE),
+  RCD_ACC_VOUCHER_ENTRY_BY     VARCHAR2(15 BYTE),
+  RCD_ACC_VOUCHER_ENTRY_DATE   DATE,
+  TAX_DEDUCT_AMOUNT            NUMBER(12,2),
+  NET_AMOUNT                   NUMBER(12,2)
+);
+
+ALTER TABLE INVEST.FIXED_INCOME_RECEIVABLE
+RENAME COLUMN ACC_VOUCHER_NO TO RCV_ACC_VOUCHER_NO;
+
+ALTER TABLE INVEST.FIXED_INCOME_RECEIVABLE
+RENAME COLUMN ACC_VOUCHER_ENTRY_BY TO RCV_ACC_VOUCHER_ENTRY_BY;
+
+ALTER TABLE INVEST.FIXED_INCOME_RECEIVABLE
+RENAME COLUMN ACC_VOUCHER_ENTRY_DATE TO RCV_ACC_VOUCHER_ENTRY_DATE;
+
+
+ALTER TABLE INVEST.FIXED_INCOME_RECEIVABLE
+MODIFY COMP_CD NUMBER(10) NULL;
+
+ALTER TABLE INVEST.FIXED_INCOME_RECEIVABLE
+ADD (
+  REMARKS         VARCHAR2(200 BYTE) DEFAULT ' ',
+  FDR_NO          VARCHAR2(32 BYTE),
+  BANK_CODE       NUMBER(4),
+  BANK_BRANC_CODE NUMBER(5)
+);
+
+
+commit;
+
+
+dotnet publish "NAVCalculationSystem.csproj" -c Release -o "E:\IAMPLC USER MANAGMENT PROJECT\Backend Build"
+
+
+
+//------------------ for production ------------------//
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using NAVCalculationSystem.Models;
+using NAVCalculationSystem.Services;
+using NAVCalculationSystem.DTOs;
+
+namespace NAVCalculationSystem.Controllers
+{
+    [ApiController]
+    [Route("api/users")]
+    public class UserController : ControllerBase
+    {
+		private readonly UserService _userService;
+        private readonly string _imageFolder;
+
+		public UserController(UserService userService)
+		{
+			_userService = userService;
+             _imageFolder = Path.Combine(AppContext.BaseDirectory, "Images");
+		}
+        // GET: api/users
+        // Protected endpoint – JWT required
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> GetUsers()
+        {
+            var users = await _userService.GetAllUsersAsync();
+            return Ok(users);
+        }
+
+
+        [HttpPost("update-password")]
+        [Authorize]
+        public async Task<IActionResult> UpdatePassword([FromBody] UpdatePasswordDto  model)
+        {
+            try
+            {
+                bool updated = await _userService.UpdateUserPasswordAsync(model.UserId, model.OldPassword, model.NewPassword);
+                if (!updated)
+                    return BadRequest(new { error = "Password update failed." });
+
+                return Ok(new { message = "Password updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpGet("menus")]
+        [Authorize]
+        public async Task<IActionResult> GetUserMenus(string userId, int projectId)
+        {
+            try
+            {
+                var menus = await _userService.GetUserMenusAsync(userId, projectId);
+                return Ok(menus);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpGet("project")]
+        [Authorize]
+        public async Task<IActionResult> GetProjectById(int projectId)
+        {
+            try
+            {
+                var project = await _userService.GetProjectByIdAsync(projectId);
+
+                if (project == null)
+                    return NotFound(new { message = "Project not found" });
+
+                return Ok(project);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        // Optional: public endpoint – no JWT needed
+        [HttpGet("public")]
+        [AllowAnonymous]
+        public IActionResult GetPublicUsers()
+        {
+            return Ok("This is a public endpoint. No token required.");
+        }
+
+        [HttpGet("image/{fileName}")]
+        [AllowAnonymous]
+       public IActionResult GetEmployeeImage(string fileName)
+        {
+            var filePath = Path.Combine(_imageFolder, fileName);
+
+            // If file doesn't exist, use default image
+            if (!System.IO.File.Exists(filePath))
+            {
+                filePath = Path.Combine(_imageFolder, "default.jpg");
+
+                // If default.jpg also doesn't exist, return 404
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return NotFound();
+                }
+            }
+
+            // Get file extension
+            var ext = Path.GetExtension(filePath).ToLower();
+            var contentType = ext switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                _ => "application/octet-stream"
+            };
+
+            var fileBytes = System.IO.File.ReadAllBytes(filePath);
+            return File(fileBytes, contentType);
+        }
+
+
+        [HttpGet("login-history")]
+        [Authorize]
+        public async Task<IActionResult> GetLoginHistory(
+            [FromQuery] string userId,
+            [FromQuery] int projectId)
+        {
+            var result =  await _userService.GetLoginHistoryAsync(userId, projectId);
+
+            if (!result.Any())
+                return NotFound("No login history found.");
+
+            return Ok(result);
+        }
+
+        [HttpGet("fixed-income-summary")]
+        [Authorize]
+        public async Task<IActionResult> GetFixedIncomeSummary()
+        {
+            var result = await _userService
+                .GetFixedIncomeReceivableSummaryAsync();
+
+            return Ok(result);
+        }
+
+
+
+
+    }
+}
