@@ -74,9 +74,9 @@ namespace NAVCalculationSystem.Services
                 WHERE rm.RN = 1
                 ORDER BY f.F_CD";
 
-            Console.WriteLine(
-                $"Executing SQL for GetAllManagmentFeeListAsync with ExpenseTypeId={expenseTypeId}, NavDate={navDate:yyyy-MM-dd}, Days={days},sql={sql}"
-            );
+            // Console.WriteLine(
+            //     $"Executing SQL for GetAllManagmentFeeListAsync with ExpenseTypeId={expenseTypeId}, NavDate={navDate:yyyy-MM-dd}, Days={days},sql={sql}"
+            // );
 
 
 
@@ -100,148 +100,149 @@ namespace NAVCalculationSystem.Services
             using var conn = CreateConnection();
 
             var sql = @"
-    SELECT
-        F.F_CD AS FundCode,
-        F.F_NAME AS FundName,
-
-        NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
-            AS PortfolioListedMarketValue,
-
-        NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
-            AS PfolioNlistedMarketValue,
-
-        NVL(FD.TOTAL_FDR_AMOUNT,0)
-            AS TotalFdrAmount,
-
-        NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
-            + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
-            + NVL(FD.TOTAL_FDR_AMOUNT,0)
-            AS PortfolioMarketValue,
-
-        CASE F.F_CD
-            WHEN 15 THEN 0.075
-            WHEN 16 THEN 0.075
-            WHEN 32 THEN 0.070
-            ELSE 0.100
-        END AS AnnualRate,
-
-        ROUND(
-            (
-                (
-                    NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
-                    + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
-                    + NVL(FD.TOTAL_FDR_AMOUNT,0)
-                )
-                *
-                CASE F.F_CD
-                    WHEN 15 THEN 0.075
-                    WHEN 16 THEN 0.075
-                    WHEN 32 THEN 0.070
-                    ELSE 0.100
-                END
-                / 100
-            )
-            * :Days / 365,
-        8) AS DailyCustodianFee,
-
-        :Days AS NAVDays,
-
-        ROUND(
-            (
-                (
-                    NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
-                    + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
-                    + NVL(FD.TOTAL_FDR_AMOUNT,0)
-                )
-                *
-                CASE F.F_CD
-                    WHEN 15 THEN 0.075
-                    WHEN 16 THEN 0.075
-                    WHEN 32 THEN 0.070
-                    ELSE 0.100
-                END
-                / 100
-            )
-            * :Days / 365,
-        8) * :Days AS AccrueCustodianFe
-
-    FROM NAV.FUND F
-
-    LEFT JOIN
-    (
-        SELECT
-            NAVFUNDID AS F_CD,
-            SUM(NAVTOTALMARKETPRICE) AS PORTFOLIO_LISTED_MARKET_VALUE
-        FROM NAV.NAV_MASTER
-        WHERE NAVDATE = :NavDate
-        GROUP BY NAVFUNDID
-    ) LV
-        ON F.F_CD = LV.F_CD
-
-    LEFT JOIN
-    (
-        SELECT
-            Q.F_CD,
-            SUM(Q.TOT_MARKET_PRICE) AS TOTAL_NONLISTED_MARKET_VALUE
-        FROM
-        (
             SELECT
-                D.F_CD,
-                ROUND(D.NO_SHARES * MP.MARKET_RATE,8) AS TOT_MARKET_PRICE
-            FROM
+                F.F_CD AS FundCode,
+                F.F_NAME AS FundName,
+
+                NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
+                    AS PortfolioListedMarketValue,
+
+                NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
+                    AS PfolioNlistedMarketValue,
+
+                NVL(FD.TOTAL_FDR_AMOUNT,0)
+                    AS TotalFdrAmount,
+
+                NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
+                    + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
+                    + NVL(FD.TOTAL_FDR_AMOUNT,0)
+                    AS PortfolioMarketValue,
+
+                CASE F.F_CD
+                    WHEN 15 THEN 0.075
+                    WHEN 16 THEN 0.075
+                    WHEN 32 THEN 0.070
+                    ELSE 0.100
+                END AS AnnualRate,
+
+                ROUND(
+                    (
+                        (
+                            NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
+                            + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
+                            + NVL(FD.TOTAL_FDR_AMOUNT,0)
+                        )
+                        *
+                        CASE F.F_CD
+                            WHEN 15 THEN 0.075
+                            WHEN 16 THEN 0.075
+                            WHEN 32 THEN 0.070
+                            ELSE 0.100
+                        END
+                        / 100
+                    )
+                    * :Days / 365,
+                8) AS DailyCustodianFee,
+
+                :Days AS NAVDays,
+
+                ROUND(
+                    (
+                        (
+                            NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
+                            + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
+                            + NVL(FD.TOTAL_FDR_AMOUNT,0)
+                        )
+                        *
+                        CASE F.F_CD
+                            WHEN 15 THEN 0.075
+                            WHEN 16 THEN 0.075
+                            WHEN 32 THEN 0.070
+                            ELSE 0.100
+                        END
+                        / 100
+                    )
+                    * :Days / 365,
+                8) * :Days AS AccrueCustodianFe
+
+            FROM NAV.FUND F
+
+            LEFT JOIN
             (
                 SELECT
-                    A.F_CD,
-                    A.COMP_CD,
-                    A.NO_SHARES,
-                    B.TRAN_DATE
+                    NAVFUNDID AS F_CD,
+                    SUM(NAVTOTALMARKETPRICE) AS PORTFOLIO_LISTED_MARKET_VALUE
+                FROM NAV.NAV_MASTER
+                WHERE NAVDATE = :NavDate
+                GROUP BY NAVFUNDID
+            ) LV
+                ON F.F_CD = LV.F_CD
+
+            LEFT JOIN
+            (
+                SELECT
+                    Q.F_CD,
+                    SUM(Q.TOT_MARKET_PRICE) AS TOTAL_NONLISTED_MARKET_VALUE
                 FROM
                 (
                     SELECT
-                        A.F_CD,
-                        A.COMP_CD,
-                        SUM(DECODE(TRAN_TP,'B',NO_SHARES,'S',-NO_SHARES)) NO_SHARES
-                    FROM INVEST.NON_LISTED_SECURITIES_DETAILS A
-                    WHERE A.INV_DATE <= :NavDate
-                    GROUP BY A.F_CD,A.COMP_CD
-                ) A
-                INNER JOIN
-                (
-                    SELECT
-                        COMP_CD,
-                        MAX(TRAN_DATE) TRAN_DATE
-                    FROM INVEST.NONLISTED_MARKET_PRICE
-                    WHERE TRAN_DATE <= :NavDate
-                    GROUP BY COMP_CD
-                ) B
-                    ON A.COMP_CD = B.COMP_CD
-            ) D
-            INNER JOIN INVEST.NONLISTED_MARKET_PRICE MP
-                ON D.COMP_CD = MP.COMP_CD
-                AND D.TRAN_DATE = MP.TRAN_DATE
-        ) Q
-        GROUP BY Q.F_CD
-    ) NL
-        ON F.F_CD = NL.F_CD
+                        D.F_CD,
+                        ROUND(D.NO_SHARES * MP.MARKET_RATE,8) AS TOT_MARKET_PRICE
+                    FROM
+                    (
+                        SELECT
+                            A.F_CD,
+                            A.COMP_CD,
+                            A.NO_SHARES,
+                            B.TRAN_DATE
+                        FROM
+                        (
+                            SELECT
+                                A.F_CD,
+                                A.COMP_CD,
+                                SUM(DECODE(TRAN_TP,'B',NO_SHARES,'S',-NO_SHARES)) NO_SHARES
+                            FROM INVEST.NON_LISTED_SECURITIES_DETAILS A
+                            WHERE A.INV_DATE <= :NavDate
+                            GROUP BY A.F_CD,A.COMP_CD
+                        ) A
+                        INNER JOIN
+                        (
+                            SELECT
+                                COMP_CD,
+                                MAX(TRAN_DATE) TRAN_DATE
+                            FROM INVEST.NONLISTED_MARKET_PRICE
+                            WHERE TRAN_DATE <= :NavDate
+                            GROUP BY COMP_CD
+                        ) B
+                            ON A.COMP_CD = B.COMP_CD
+                    ) D
+                    INNER JOIN INVEST.NONLISTED_MARKET_PRICE MP
+                        ON D.COMP_CD = MP.COMP_CD
+                        AND D.TRAN_DATE = MP.TRAN_DATE
+                ) Q
+                GROUP BY Q.F_CD
+            ) NL
+                ON F.F_CD = NL.F_CD
 
-    LEFT JOIN
-    (
-        SELECT
-            A.FUND_CD AS F_CD,
-            SUM(A.FDR_AMOUNT) AS TOTAL_FDR_AMOUNT
-        FROM INVEST.FDR_INFO A
-        WHERE A.VALID IS NULL
-        AND A.FDR_OPEN_DT <= :NavDate
-        AND A.FDR_MATUR_DT > :NavDate
-        GROUP BY A.FUND_CD
-    ) FD
-        ON F.F_CD = FD.F_CD
+            LEFT JOIN
+            (
+                SELECT
+                    A.FUND_CD AS F_CD,
+                    SUM(A.FDR_AMOUNT) AS TOTAL_FDR_AMOUNT
+                FROM INVEST.FDR_INFO A
+                WHERE A.VALID IS NULL
+                AND A.FDR_OPEN_DT <= :NavDate
+                AND A.FDR_MATUR_DT > :NavDate
+                GROUP BY A.FUND_CD
+            ) FD
+                ON F.F_CD = FD.F_CD
 
-    WHERE F.VALID = 'Y'
-    ORDER BY F.F_CD";
+            WHERE F.VALID = 'Y'
+            AND NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0) > 0
+            ORDER BY F.F_CD";
 
             Console.WriteLine(
-                $"Executing SQL for GetAllCustodianFeeListAsync " +
+                $"Executing SQL for GetAllCustodianFeeListAsync " +sql+
                 $"ExpenseTypeId={expenseTypeId}, " +
                 $"NavDate={navDate:yyyy-MM-dd}, Days={days}"
             );
@@ -305,6 +306,7 @@ namespace NAVCalculationSystem.Services
                 ON F.F_CD = LV.F_CD
 
             WHERE F.VALID = 'Y'
+            AND NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0) > 0
             ORDER BY F.F_CD";
 
             Console.WriteLine(sql);
