@@ -19,9 +19,9 @@ namespace NAVCalculationSystem.Controllers
         [HttpGet("managmentFeeList")]
         [Authorize]
         public async Task<IActionResult> GetAllManagmentFeeListAsync(
-       int expenseTypeId,
-       DateTime navDate,
-       int days)
+            int expenseTypeId,
+            DateTime navDate,
+            int days)
         {
             object result;
 
@@ -32,9 +32,6 @@ namespace NAVCalculationSystem.Controllers
                         expenseTypeId,
                         navDate,
                         days);
-                    // Console.WriteLine($"Retrieved {((IEnumerable<ManagementFeeDto>)result).Count()} management fee records.");
-
-
                     break;
 
                 case 3:
@@ -42,44 +39,56 @@ namespace NAVCalculationSystem.Controllers
                         expenseTypeId,
                         navDate,
                         days);
-                    // Console.WriteLine($"Retrieved {((IEnumerable<CustodianFeeDto>)result).Count()} custodian fee records.");
                     break;
 
-                 case 4:
-                  
+                case 4:
                     result = await _payableService.GetAllTrusteeFeeListAsync(
                         expenseTypeId,
                         navDate,
                         days);
-                 Console.WriteLine($"Retrieved {((IEnumerable<TrusteeFeeDto>)result).Count()} Trustee fee records.");
                     break;
-
-
-
 
                 default:
                     return BadRequest("Invalid Expense Type");
             }
 
-            if (result is System.Collections.ICollection collection)
-            {
-                Console.WriteLine($"Retrieved {collection.Count} records.");
-            }
-
-
             return Ok(result);
-
-
         }
+
         [HttpGet("expenseTypeList")]
         [Authorize]
         public async Task<IActionResult> GetAllExpenseTypesAsync()
         {
             var result = await _payableService.GetAllExpenseTypesAsync();
 
-            // Console.WriteLine(
-            //     $"Retrieved {result.Count()} expense type records."
-            // );
+            return Ok(result);
+        }
+
+        [HttpPost("save-payable")]
+        [Authorize]
+        public async Task<IActionResult> SaveExpensePayable(
+            [FromBody] List<ExpensePayableDto> payableList)
+        {
+            if (payableList == null || !payableList.Any())
+            {
+                return BadRequest(new
+                {
+                    message = "Please select at least one record."
+                });
+            }
+
+            var entryBy = User.FindFirst("userId")?.Value;
+
+            if (string.IsNullOrWhiteSpace(entryBy))
+            {
+                return Unauthorized(new
+                {
+                    message = "Invalid user."
+                });
+            }
+
+            var result = await _payableService
+                .SaveExpensePayableAsync(payableList, entryBy);
 
             return Ok(result);
         }

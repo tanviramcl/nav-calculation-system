@@ -9,6 +9,7 @@ namespace NAVCalculationSystem.Services
     public class PayableService
     {
         private readonly IConfiguration _configuration;
+        
 
         public PayableService(IConfiguration configuration)
         {
@@ -242,7 +243,7 @@ namespace NAVCalculationSystem.Services
             ORDER BY F.F_CD";
 
             Console.WriteLine(
-                $"Executing SQL for GetAllCustodianFeeListAsync " +sql+
+                $"Executing SQL for GetAllCustodianFeeListAsync " + sql +
                 $"ExpenseTypeId={expenseTypeId}, " +
                 $"NavDate={navDate:yyyy-MM-dd}, Days={days}"
             );
@@ -336,5 +337,161 @@ namespace NAVCalculationSystem.Services
 
             return await conn.QueryAsync<ExpenseTypeDto>(sql);
         }
+
+        public async Task<SaveExpensePayableResult> SaveExpensePayableAsync(
+            IEnumerable<ExpensePayableDto> payableList,
+            string entryBy)
+        {
+            using var connection = CreateConnection();
+
+            connection.Open();
+
+            using var transaction = connection.BeginTransaction();
+
+            var skippedRecords = new List<ExpensePayableDto>();
+
+            int insertedCount = 0;
+
+            try
+            {
+                var maxId = await connection.ExecuteScalarAsync<long>(
+                    @"SELECT NVL(MAX(ID),0)
+                    FROM EXPENSE_ACCRUAL_DETAILS",
+                    transaction: transaction);
+
+                long currentId = maxId;
+
+                var insertSql = @"
+                        INSERT INTO EXPENSE_ACCRUAL_DETAILS
+                        (
+                            ID,
+                            NAV_DATE,
+                            FUND_CD,
+                            EXPENSE_TYPE_ID,
+                            PORTFOLIO_MARKET_VALUE,
+                            ANNUAL_RATE,
+                            DAILY_FEE,
+                            NAV_DAYS,
+                            ACCRUED_FEE,
+                            PAY_CREATED_BY,
+                            PAY_CREATED_DATE
+                        )
+                        VALUES
+                        (
+                            :ID,
+                            :NAV_DATE,
+                            :FUND_CD,
+                            :EXPENSE_TYPE_ID,
+                            :PORTFOLIO_MARKET_VALUE,
+                            :ANNUAL_RATE,
+                            :DAILY_FEE,
+                            :NAV_DAYS,
+                            :ACCRUED_FEE,
+                            :PAY_CREATED_BY,
+                            SYSDATE
+                        )";
+
+                foreach (var r in payableList)
+                {
+                    var savePoint =
+                        $"SP_PAY_{r.FUND_CD}_{r.EXPENSE_TYPE_ID}_{r.NAV_DATE:yyyyMMdd}";
+
+                    await connection.ExecuteAsync(
+                        $"SAVEPOINT {savePoint}",
+                        transaction: transaction);
+
+                    try
+                    {
+                        // Duplicate Check
+                        var exists = await connection.ExecuteScalarAsync<int>(
+                            @"
+                                SELECT COUNT(1)
+                                FROM EXPENSE_ACCRUAL_DETAILS
+                                WHERE FUND_CD = :FUND_CD
+                                AND EXPENSE_TYPE_ID = :EXPENSE_TYPE_ID
+                                AND TRUNC(NAV_DATE) = TRUNC(:NAV_DATE)",
+                            new
+                            {
+                                FUND_CD = r.FUND_CD,
+                                EXPENSE_TYPE_ID = r.EXPENSE_TYPE_ID,
+                                NAV_DATE = r.NAV_DATE
+                            },
+                            transaction);
+
+                        if (exists > 0)
+                        {
+                            r.skipReason =
+                                "Expense payable already exists.";
+
+                            skippedRecords.Add(r);
+
+                            continue;
+                        }
+
+                        // Validation
+                        if (r.ACCRUED_FEE <= 0)
+                        {
+                            r.skipReason =
+                                "Accrued fee must be greater than zero.";
+
+                            skippedRecords.Add(r);
+
+                            continue;
+                        }
+
+                        currentId++;
+
+                        await connection.ExecuteAsync(
+                            insertSql,
+                            new
+                            {
+                                ID = currentId,
+                                NAV_DATE = r.NAV_DATE,
+                                FUND_CD = r.FUND_CD,
+                                EXPENSE_TYPE_ID = r.EXPENSE_TYPE_ID,
+                                PORTFOLIO_MARKET_VALUE = r.PORTFOLIO_MARKET_VALUE,
+                                ANNUAL_RATE = r.ANNUAL_RATE,
+                                DAILY_FEE = r.DAILY_FEE,
+                                NAV_DAYS = r.NAV_DAYS,
+                                ACCRUED_FEE = r.ACCRUED_FEE,
+                                PAY_CREATED_BY = entryBy
+                            },
+                            transaction);
+
+                        insertedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        await connection.ExecuteAsync(
+                            $"ROLLBACK TO SAVEPOINT {savePoint}",
+                            transaction: transaction);
+
+                        r.skipReason = $"Error: {ex.Message}";
+
+                        skippedRecords.Add(r);
+                    }
+                }
+
+                transaction.Commit();
+
+                return new SaveExpensePayableResult
+                {
+                    InsertedCount = insertedCount,
+                    SkippedRecords = skippedRecords
+                };
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+    }
+    public class SaveExpensePayableResult
+    {
+        public int InsertedCount { get; set; }
+
+        public List<ExpensePayableDto> SkippedRecords { get; set; }
+            = new();
     }
 }
