@@ -356,13 +356,13 @@ namespace NAVCalculationSystem.Services
             {
                 var maxId = await connection.ExecuteScalarAsync<long>(
                     @"SELECT NVL(MAX(ID),0)
-                    FROM EXPENSE_ACCRUAL_DETAILS",
+                    FROM NAV.EXPENSE_ACCRUAL_DETAILS",
                     transaction: transaction);
 
                 long currentId = maxId;
 
                 var insertSql = @"
-                        INSERT INTO EXPENSE_ACCRUAL_DETAILS
+                        INSERT INTO NAV.EXPENSE_ACCRUAL_DETAILS
                         (
                             ID,
                             NAV_DATE,
@@ -391,6 +391,8 @@ namespace NAVCalculationSystem.Services
                             SYSDATE
                         )";
 
+                        Console.WriteLine($"Insert SQL: {insertSql}");
+
                 foreach (var r in payableList)
                 {
                     var savePoint =
@@ -406,7 +408,7 @@ namespace NAVCalculationSystem.Services
                         var exists = await connection.ExecuteScalarAsync<int>(
                             @"
                                 SELECT COUNT(1)
-                                FROM EXPENSE_ACCRUAL_DETAILS
+                                FROM NAV.EXPENSE_ACCRUAL_DETAILS
                                 WHERE FUND_CD = :FUND_CD
                                 AND EXPENSE_TYPE_ID = :EXPENSE_TYPE_ID
                                 AND TRUNC(NAV_DATE) = TRUNC(:NAV_DATE)",
@@ -420,8 +422,44 @@ namespace NAVCalculationSystem.Services
 
                         if (exists > 0)
                         {
+                               var fundInfo = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                                @"
+                                SELECT 
+                                    F.F_NAME AS FUND_NAME
+                                FROM NAV.FUND F
+                                WHERE F.F_CD = :FUND_CD
+                                ",
+                                new
+                                {
+                                    FUND_CD = r.FUND_CD
+                                },
+                                transaction
+                            );
+
+
+                            var expenseInfo = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                                @"
+                                SELECT 
+                                    EXPENSE_TYPE_NAME
+                                FROM NAV.EXPENSE_TYPE
+                                WHERE EXPENSE_TYPE_ID = :EXPENSE_TYPE_ID
+                                ",
+                                new
+                                {
+                                    EXPENSE_TYPE_ID = r.EXPENSE_TYPE_ID
+                                },
+                                transaction
+                            );
+
+
+                            r.FUND_NAME = fundInfo?.FUND_NAME;
+
+                            r.EXPENSE_TYPE_NAME = expenseInfo?.EXPENSE_TYPE_NAME;
+
+
                             r.skipReason =
                                 "Expense payable already exists.";
+
 
                             skippedRecords.Add(r);
 
@@ -489,6 +527,7 @@ namespace NAVCalculationSystem.Services
     }
     public class SaveExpensePayableResult
     {
+
         public int InsertedCount { get; set; }
 
         public List<ExpensePayableDto> SkippedRecords { get; set; }

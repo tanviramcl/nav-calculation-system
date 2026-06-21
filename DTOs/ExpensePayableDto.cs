@@ -5,8 +5,12 @@ namespace NAVCalculationSystem.DTOs
         public DateTime NAV_DATE { get; set; }
 
         public int FUND_CD { get; set; }
+        public string FUND_NAME { get; set; }
 
         public int EXPENSE_TYPE_ID { get; set; }
+
+        public string EXPENSE_TYPE_NAME { get; set; }
+
 
         public decimal PORTFOLIO_MARKET_VALUE { get; set; }
 
