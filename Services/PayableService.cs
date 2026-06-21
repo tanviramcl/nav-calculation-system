@@ -9,6 +9,9 @@ namespace NAVCalculationSystem.Services
     public class PayableService
     {
         private readonly IConfiguration _configuration;
+
+        
+		private readonly ExpenseVoucherService _expenseVoucherService;
         
 
         public PayableService(IConfiguration configuration)
@@ -476,6 +479,18 @@ namespace NAVCalculationSystem.Services
 
                             continue;
                         }
+
+                        string voucherNo =
+                        await _expenseVoucherService.SaveExpensePayableVoucherAsync(
+                            connection,
+                            transaction,
+                            r.FUND_CD,
+                            r.EXPENSE_TYPE_ID,
+                            r.EXPENSE_TYPE_NAME,
+                            r.ACCRUED_FEE,
+                            r.NAV_DATE,
+                            r.NAV_DAYS,
+                            entryBy);
 
                         currentId++;
 
