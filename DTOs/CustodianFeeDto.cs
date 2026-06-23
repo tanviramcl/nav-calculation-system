@@ -9,6 +9,8 @@ namespace NAVCalculationSystem.DTOs
         public decimal PfolioNlistedMarketValue { get; set; }
         public decimal TotalFdrAmount { get; set; }
 
+        public decimal TotalSellBuyAmountCharge { get; set; }
+
         public decimal PortfolioMarketValue { get; set; }
         public decimal AnnualRate { get; set; }
 

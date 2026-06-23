@@ -103,7 +103,7 @@ namespace NAVCalculationSystem.Services
             using var conn = CreateConnection();
 
             var sql = @"
-                    SELECT
+                   SELECT
                 F.F_CD AS FundCode,
                 F.F_NAME AS FundName,
 
@@ -115,10 +115,16 @@ namespace NAVCalculationSystem.Services
 
                 NVL(FD.TOTAL_FDR_AMOUNT,0)
                     AS TotalFdrAmount,
+                NVL(FT.SELLBUY_AMOUNT_CHARGE,0)
+                    AS TotalSellBuyAmountCharge,
 
                 NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
                     + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
                     + NVL(FD.TOTAL_FDR_AMOUNT,0)
+                    + CASE
+                          WHEN F.F_CD = 32 THEN NVL(FT.SELLBUY_AMOUNT_CHARGE,0)
+                          ELSE 0
+                      END
                     AS PortfolioMarketValue,
 
                 CASE F.F_CD
@@ -134,6 +140,10 @@ namespace NAVCalculationSystem.Services
                             NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
                             + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
                             + NVL(FD.TOTAL_FDR_AMOUNT,0)
+                            + CASE
+                              WHEN F.F_CD = 32 THEN NVL(FT.SELLBUY_AMOUNT_CHARGE,0)
+                              ELSE 0
+                          END
                         )
                         *
                         CASE F.F_CD
@@ -155,6 +165,11 @@ namespace NAVCalculationSystem.Services
                             NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0)
                             + NVL(NL.TOTAL_NONLISTED_MARKET_VALUE,0)
                             + NVL(FD.TOTAL_FDR_AMOUNT,0)
+                              + CASE
+                              WHEN F.F_CD = 32 THEN NVL(FT.SELLBUY_AMOUNT_CHARGE,0)
+                              ELSE 0
+                          END
+                            
                         )
                         *
                         CASE F.F_CD
@@ -239,6 +254,19 @@ namespace NAVCalculationSystem.Services
                 GROUP BY A.FUND_CD
             ) FD
                 ON F.F_CD = FD.F_CD
+                
+        LEFT JOIN
+        (
+            SELECT
+                F_CD,
+                COUNT(*) * 200 AS SELLBUY_AMOUNT_CHARGE
+            FROM INVEST.FUND_TRANS_HB
+            WHERE VCH_DT =:NavDate
+              AND F_CD = 32
+              AND TRAN_TP IN ('C', 'S')
+            GROUP BY F_CD
+        ) FT
+            ON F.F_CD = FT.F_CD
 
             WHERE F.VALID = 'Y'
             AND NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0) > 0
