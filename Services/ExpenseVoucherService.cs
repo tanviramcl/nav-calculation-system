@@ -32,6 +32,7 @@ public class ExpenseVoucherService
 		DateTime navDate,
 		string expenseTypeName,
 		string voucherNo,
+		string voucherTypeCode,
 		string voucherEntryBy,
 		int noOfDays)
 	{
@@ -99,7 +100,7 @@ public class ExpenseVoucherService
 			TerminalNo = 10,
 			CtrlNo = ctrlNumber,
 			OpId = voucherEntryBy,
-			VoucherType = "14",
+			VoucherType = voucherTypeCode,
 			Recent = "Y",
 			LatestDel = "M",
 			IsOut = "N",
@@ -122,6 +123,20 @@ public class ExpenseVoucherService
 		};
 	}
 
+	private string GetExpenseVoucherTypeCode(int expenseTypeId)
+	{
+		return expenseTypeId switch
+		{
+			1 => "23", // Management Fee Payable Voucher
+			2 => "24", // Custodian Fee Payable Voucher
+			3 => "25", // Trustee Fee Payable Voucher
+
+			_ => throw new Exception(
+				$"Voucher type not configured for ExpenseTypeId = {expenseTypeId}"
+			)
+		};
+	}
+
 	public async Task<string> SaveExpensePayableVoucherAsync(
     IDbConnection connection,
     IDbTransaction transaction,
@@ -133,6 +148,8 @@ public class ExpenseVoucherService
     int noOfDays,
     string voucherEntryBy)
 	{
+
+		//Console.WriteLine($"Generating voucher for Fund: {fundCd}, Expense Type: {expenseTypeId}, NAV Date: {navDate:yyyy-MM-dd}, Amount: {amount}, No of Days: {noOfDays}");
 		string accountSchema =
 			await DbQuery.GetSchemaAsync(connection, fundCd, transaction);
 
@@ -150,11 +167,13 @@ public class ExpenseVoucherService
 				"TO_NUMBER(CTRLNO)",
 				transaction) - 1;
 
+		string voucherTypeCode = GetExpenseVoucherTypeCode(expenseTypeId);
+
 		string voucherNo =
 			await DbQuery.GetNextAccountVoucherNoAsync(
 				connection,
 				accountSchema,
-				"14",
+				voucherTypeCode,
 				transaction);
 
 		var (debitCode, creditCode) =
@@ -176,8 +195,11 @@ public class ExpenseVoucherService
 				navDate,
 				expenseTypeName,
 				voucherNo,
+				voucherTypeCode,
 				voucherEntryBy,
 				noOfDays);
+
+				Console.WriteLine($"Inserted Debit GL_TRAN with TranId: {tranNumber}, CtrlNo: {ctrlNumber}");
 
 		// Credit Payable Head
 		ctrlNumber++;
@@ -195,10 +217,13 @@ public class ExpenseVoucherService
 				navDate,
 				expenseTypeName,
 				voucherNo,
+				voucherTypeCode,
 				voucherEntryBy,
 				noOfDays);
 
 		ctrlNumber++;
+
+		Console.WriteLine($"Inserted Debit GL_TRAN with TranId: {tranNumber}, CtrlNo: {ctrlNumber}");
 
 		await connection.ExecuteAsync(
 			$@"UPDATE {accountSchema}.GL_BASICINFO
@@ -212,6 +237,7 @@ public class ExpenseVoucherService
 			transaction);
 
 		return voucherNo;
+		// return $"VCHR-{fundCd}-{expenseTypeId}-{navDate:yyyyMMdd}";
 	}
 
 

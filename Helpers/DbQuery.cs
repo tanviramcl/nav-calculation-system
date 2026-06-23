@@ -105,5 +105,7 @@ namespace NAVCalculationSystem.Helpers
             // 3️⃣ If no records found, start from 1
             return "1";
         }
+
+        
 	}
 }

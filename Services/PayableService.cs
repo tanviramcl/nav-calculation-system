@@ -9,14 +9,13 @@ namespace NAVCalculationSystem.Services
     public class PayableService
     {
         private readonly IConfiguration _configuration;
-
-        
 		private readonly ExpenseVoucherService _expenseVoucherService;
         
 
-        public PayableService(IConfiguration configuration)
+        public PayableService(IConfiguration configuration,ExpenseVoucherService expenseVoucherService)
         {
             _configuration = configuration;
+            _expenseVoucherService = expenseVoucherService;
         }
 
         private IDbConnection CreateConnection()
@@ -104,7 +103,7 @@ namespace NAVCalculationSystem.Services
             using var conn = CreateConnection();
 
             var sql = @"
-            SELECT
+                    SELECT
                 F.F_CD AS FundCode,
                 F.F_NAME AS FundName,
 
@@ -364,37 +363,75 @@ namespace NAVCalculationSystem.Services
 
                 long currentId = maxId;
 
+                // var insertSql = @"
+                //         INSERT INTO NAV.EXPENSE_ACCRUAL_DETAILS
+                //         (
+                //             ID,
+                //             NAV_DATE,
+                //             FUND_CD,
+                //             EXPENSE_TYPE_ID,
+                //             PORTFOLIO_MARKET_VALUE,
+                //             ANNUAL_RATE,
+                //             DAILY_FEE,
+                //             NAV_DAYS,
+                //             ACCRUED_FEE,
+                //             PAY_CREATED_BY,
+                //             PAY_CREATED_DATE
+                //         )
+                //         VALUES
+                //         (
+                //             :ID,
+                //             :NAV_DATE,
+                //             :FUND_CD,
+                //             :EXPENSE_TYPE_ID,
+                //             :PORTFOLIO_MARKET_VALUE,
+                //             :ANNUAL_RATE,
+                //             :DAILY_FEE,
+                //             :NAV_DAYS,
+                //             :ACCRUED_FEE,
+                //             :PAY_CREATED_BY,
+                //             SYSDATE
+                //         )";
                 var insertSql = @"
-                        INSERT INTO NAV.EXPENSE_ACCRUAL_DETAILS
-                        (
-                            ID,
-                            NAV_DATE,
-                            FUND_CD,
-                            EXPENSE_TYPE_ID,
-                            PORTFOLIO_MARKET_VALUE,
-                            ANNUAL_RATE,
-                            DAILY_FEE,
-                            NAV_DAYS,
-                            ACCRUED_FEE,
-                            PAY_CREATED_BY,
-                            PAY_CREATED_DATE
-                        )
-                        VALUES
-                        (
-                            :ID,
-                            :NAV_DATE,
-                            :FUND_CD,
-                            :EXPENSE_TYPE_ID,
-                            :PORTFOLIO_MARKET_VALUE,
-                            :ANNUAL_RATE,
-                            :DAILY_FEE,
-                            :NAV_DAYS,
-                            :ACCRUED_FEE,
-                            :PAY_CREATED_BY,
-                            SYSDATE
-                        )";
+                INSERT INTO NAV.EXPENSE_ACCRUAL_DETAILS
+                (
+                    ID,
+                    NAV_DATE,
+                    FUND_CD,
+                    EXPENSE_TYPE_ID,
+                    PORTFOLIO_MARKET_VALUE,
+                    ANNUAL_RATE,
+                    DAILY_FEE,
+                    NAV_DAYS,
+                    ACCRUED_FEE,
 
-                        Console.WriteLine($"Insert SQL: {insertSql}");
+                    PAY_VOUCHER_NO,
+                    PAY_VOUCHER_DATE,
+                    PAY_IS_POSTED,
+
+                    PAY_CREATED_BY,
+                    PAY_CREATED_DATE
+                )
+                VALUES
+                (
+                    :ID,
+                    :NAV_DATE,
+                    :FUND_CD,
+                    :EXPENSE_TYPE_ID,
+                    :PORTFOLIO_MARKET_VALUE,
+                    :ANNUAL_RATE,
+                    :DAILY_FEE,
+                    :NAV_DAYS,
+                    :ACCRUED_FEE,
+
+                    :PAY_VOUCHER_NO,
+                    :PAY_VOUCHER_DATE,
+                    :PAY_IS_POSTED,
+
+                    :PAY_CREATED_BY,
+                    SYSDATE
+                )";
+                                    // Console.WriteLine($"Insert SQL: {insertSql}");
 
                 foreach (var r in payableList)
                 {
@@ -469,6 +506,9 @@ namespace NAVCalculationSystem.Services
                             continue;
                         }
 
+                        Console.WriteLine(
+                            $"Processing Fund: {r.FUND_CD}, Expense Type: {r.EXPENSE_TYPE_ID}, NAV Date: {r.NAV_DATE:yyyy-MM-dd},Daily Fee: {r.DAILY_FEE}, Accrued Fee: {r.ACCRUED_FEE}");
+
                         // Validation
                         if (r.ACCRUED_FEE <= 0)
                         {
@@ -491,25 +531,32 @@ namespace NAVCalculationSystem.Services
                             r.NAV_DATE,
                             r.NAV_DAYS,
                             entryBy);
+                       //  Console.WriteLine($"Generated Voucher No: {voucherNo} for Fund: {r.FUND_CD}, Expense Type: {r.EXPENSE_TYPE_ID}, NAV Date: {r.NAV_DATE:yyyy-MM-dd}");
 
                         currentId++;
 
-                        await connection.ExecuteAsync(
-                            insertSql,
-                            new
-                            {
-                                ID = currentId,
-                                NAV_DATE = r.NAV_DATE,
-                                FUND_CD = r.FUND_CD,
-                                EXPENSE_TYPE_ID = r.EXPENSE_TYPE_ID,
-                                PORTFOLIO_MARKET_VALUE = r.PORTFOLIO_MARKET_VALUE,
-                                ANNUAL_RATE = r.ANNUAL_RATE,
-                                DAILY_FEE = r.DAILY_FEE,
-                                NAV_DAYS = r.NAV_DAYS,
-                                ACCRUED_FEE = r.ACCRUED_FEE,
-                                PAY_CREATED_BY = entryBy
-                            },
-                            transaction);
+                     await connection.ExecuteAsync(
+                        insertSql,
+                        new
+                        {
+                            ID = currentId,
+                            NAV_DATE = r.NAV_DATE,
+                            FUND_CD = r.FUND_CD,
+                            EXPENSE_TYPE_ID = r.EXPENSE_TYPE_ID,
+
+                            PORTFOLIO_MARKET_VALUE = r.PORTFOLIO_MARKET_VALUE,
+                            ANNUAL_RATE = r.ANNUAL_RATE,
+                            DAILY_FEE = r.DAILY_FEE,
+                            NAV_DAYS = r.NAV_DAYS,
+                            ACCRUED_FEE = r.ACCRUED_FEE,
+
+                            PAY_VOUCHER_NO = voucherNo,
+                            PAY_VOUCHER_DATE = r.NAV_DATE,
+                            PAY_IS_POSTED = "Y",
+
+                            PAY_CREATED_BY = entryBy
+                        },
+                        transaction);
 
                         insertedCount++;
                     }
@@ -540,6 +587,9 @@ namespace NAVCalculationSystem.Services
             }
         }
     }
+
+    
+    
     public class SaveExpensePayableResult
     {
 
