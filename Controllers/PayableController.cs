@@ -48,6 +48,13 @@ namespace NAVCalculationSystem.Controllers
                         days);
                     break;
 
+                case 6:
+                    result = await _payableService.GetAllAnnualFeeListAsync(
+                        expenseTypeId,
+                        navDate,
+                        days);
+                    break;
+
                 default:
                     return BadRequest("Invalid Expense Type");
             }
@@ -86,7 +93,7 @@ namespace NAVCalculationSystem.Controllers
                     message = "Invalid user."
                 });
             }
-            
+
 
             var result = await _payableService
                 .SaveExpensePayableAsync(payableList, entryBy);

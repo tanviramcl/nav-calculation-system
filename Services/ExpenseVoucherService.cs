@@ -6,35 +6,35 @@ using NAVCalculationSystem.Helpers;
 using NAVCalculationSystem.DTOs;
 
 
-public class ExpenseVoucherService 
+public class ExpenseVoucherService
 {
-     private readonly IConfiguration _configuration;
+	private readonly IConfiguration _configuration;
 
-    public ExpenseVoucherService(IConfiguration configuration)
-    {
-        _configuration = configuration;
-    }
+	public ExpenseVoucherService(IConfiguration configuration)
+	{
+		_configuration = configuration;
+	}
 
 	private IDbConnection CreateConnection()
 	{
 		return new OracleConnection(_configuration.GetConnectionString("InvestConnection"));
 	}
 
-		private async Task<(long TranId, long CtrlNo)> InsertExpenseGlTranAsync(
-		IDbConnection connection,
-		IDbTransaction transaction,
-		string accountSchema,
-		long tranNumber,
-		long ctrlNumber,
-		string accCode,
-		string tranType,
-		decimal amount,
-		DateTime navDate,
-		string expenseTypeName,
-		string voucherNo,
-		string voucherTypeCode,
-		string voucherEntryBy,
-		int noOfDays)
+	private async Task<(long TranId, long CtrlNo)> InsertExpenseGlTranAsync(
+	IDbConnection connection,
+	IDbTransaction transaction,
+	string accountSchema,
+	long tranNumber,
+	long ctrlNumber,
+	string accCode,
+	string tranType,
+	decimal amount,
+	DateTime navDate,
+	string expenseTypeName,
+	string voucherNo,
+	string voucherTypeCode,
+	string voucherEntryBy,
+	int noOfDays)
 	{
 		string bankAccNo = tranType == "D" ? accCode : " ";
 		string bankAccContra = tranType == "C" ? accCode : " ";
@@ -111,25 +111,71 @@ public class ExpenseVoucherService
 		return (tranNumber, ctrlNumber);
 	}
 
-	private (string DebitCode, string CreditCode) GetExpenseAccountCodes(int expenseTypeId)
+	private async Task<(string DebitCode, string CreditCode)> GetExpenseAccountCodesAsync(
+	IDbConnection connection,
+	IDbTransaction transaction,
+	int fundCd,
+	int expenseTypeId)
 	{
-		return expenseTypeId switch
-		{
-			1 => ("402090000", "103020000"), // Management Fee
-			2 => ("402110000", "103040000"), // Custodian Fee
-			3 => ("402100000", "103030000"), // Trustee Fee
+		const string sql = @"
+        SELECT
+            MANAGEMENT_FEE_DEBIT_CODE,
+            MANAGEMENT_FEE_CREDIT_CODE,
+            CUSTODIAN_FEE_DEBIT_CODE,
+            CUSTODIAN_FEE_CREDIT_CODE,
+            TRUSTEE_FEE_DEBIT_CODE,
+            TRUSTEE_FEE_CREDIT_CODE,
+            ANNUAL_FEE_DEBIT_CODE,
+            ANNUAL_FEE_CREDIT_CODE,
+            LISTING_FEE_DEBIT_CODE,
+            LISTING_FEE_CREDIT_CODE
+        FROM INVEST.FUND_PARA
+        WHERE F_CD = :FundCd";
 
-			_ => throw new Exception($"Account code not configured for ExpenseTypeId = {expenseTypeId}")
+		var para = await connection.QueryFirstOrDefaultAsync(sql,
+			new { FundCd = fundCd }, transaction);
+
+		if (para == null)
+			throw new Exception($"Fund parameter not found for Fund Code = {fundCd}.");
+
+		string debitCode = expenseTypeId switch
+		{
+			2 => para.MANAGEMENT_FEE_DEBIT_CODE,
+			3 => para.CUSTODIAN_FEE_DEBIT_CODE,
+			4 => para.TRUSTEE_FEE_DEBIT_CODE,
+			6 => para.ANNUAL_FEE_DEBIT_CODE,
+			7 => para.LISTING_FEE_DEBIT_CODE,
+			_ => throw new Exception($"ExpenseTypeId {expenseTypeId} is not configured.")
 		};
+
+		string creditCode = expenseTypeId switch
+		{
+			2 => para.MANAGEMENT_FEE_CREDIT_CODE,
+			3 => para.CUSTODIAN_FEE_CREDIT_CODE,
+			4 => para.TRUSTEE_FEE_CREDIT_CODE,
+			6 => para.ANNUAL_FEE_CREDIT_CODE,
+			7 => para.LISTING_FEE_CREDIT_CODE,
+			_ => throw new Exception($"ExpenseTypeId {expenseTypeId} is not configured.")
+		};
+
+		if (string.IsNullOrWhiteSpace(debitCode))
+			throw new Exception($"Debit account code is not configured for ExpenseTypeId = {expenseTypeId}.");
+
+		if (string.IsNullOrWhiteSpace(creditCode))
+			throw new Exception($"Credit account code is not configured for ExpenseTypeId = {expenseTypeId}.");
+
+		return (debitCode, creditCode);
 	}
 
 	private string GetExpenseVoucherTypeCode(int expenseTypeId)
 	{
 		return expenseTypeId switch
 		{
-			1 => "23", // Management Fee Payable Voucher
-			2 => "24", // Custodian Fee Payable Voucher
-			3 => "25", // Trustee Fee Payable Voucher
+			2 => "23", // Management Fee Payable Voucher
+			3 => "24", // Custodian Fee Payable Voucher
+			4 => "25", // Trustee Fee Payable Voucher
+			6 => "26", // Annual Fee Payable Voucher
+			7 => "27", // Listing Fee Payable Voucher
 
 			_ => throw new Exception(
 				$"Voucher type not configured for ExpenseTypeId = {expenseTypeId}"
@@ -138,15 +184,15 @@ public class ExpenseVoucherService
 	}
 
 	public async Task<string> SaveExpensePayableVoucherAsync(
-    IDbConnection connection,
-    IDbTransaction transaction,
-    int fundCd,
-    int expenseTypeId,
-    string expenseTypeName,
-    decimal amount,
-    DateTime navDate,
-    int noOfDays,
-    string voucherEntryBy)
+	IDbConnection connection,
+	IDbTransaction transaction,
+	int fundCd,
+	int expenseTypeId,
+	string expenseTypeName,
+	decimal amount,
+	DateTime navDate,
+	int noOfDays,
+	string voucherEntryBy)
 	{
 
 		//Console.WriteLine($"Generating voucher for Fund: {fundCd}, Expense Type: {expenseTypeId}, NAV Date: {navDate:yyyy-MM-dd}, Amount: {amount}, No of Days: {noOfDays}");
@@ -177,7 +223,12 @@ public class ExpenseVoucherService
 				transaction);
 
 		var (debitCode, creditCode) =
-			GetExpenseAccountCodes(expenseTypeId);
+	await GetExpenseAccountCodesAsync(
+		connection,
+		transaction,
+		fundCd,
+		expenseTypeId);
+
 
 		// Debit Expense Head
 		ctrlNumber++;
@@ -199,7 +250,7 @@ public class ExpenseVoucherService
 				voucherEntryBy,
 				noOfDays);
 
-				Console.WriteLine($"Inserted Debit GL_TRAN with TranId: {tranNumber}, CtrlNo: {ctrlNumber}");
+		Console.WriteLine($"Inserted Debit GL_TRAN with TranId: {tranNumber}, CtrlNo: {ctrlNumber}");
 
 		// Credit Payable Head
 		ctrlNumber++;
@@ -241,5 +292,5 @@ public class ExpenseVoucherService
 	}
 
 
-   
+
 }
