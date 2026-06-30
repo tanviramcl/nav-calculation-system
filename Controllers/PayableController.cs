@@ -54,6 +54,13 @@ namespace NAVCalculationSystem.Controllers
                         navDate,
                         days);
                     break;
+                case 7:
+                    result = await _payableService.GetAllListingFeeListAsync(
+                        expenseTypeId,
+                        navDate,
+                        days);
+                      //  Console.WriteLine("Listing Fee List Retrieved");
+                    break;
 
                 default:
                     return BadRequest("Invalid Expense Type");
@@ -94,11 +101,28 @@ namespace NAVCalculationSystem.Controllers
                 });
             }
 
+            // foreach (var item in payableList)
+            // {
+            //     Console.WriteLine("======================================");
+            //     Console.WriteLine($"NAV_DATE               : {item.NAV_DATE:yyyy-MM-dd}");
+            //     Console.WriteLine($"FUND_CD                : {item.FUND_CD}");
+            //     Console.WriteLine($"FUND_NAME              : {item.FUND_NAME}");
+            //     Console.WriteLine($"EXPENSE_TYPE_ID        : {item.EXPENSE_TYPE_ID}");
+            //     Console.WriteLine($"EXPENSE_TYPE_NAME      : {item.EXPENSE_TYPE_NAME}");
+            //     Console.WriteLine($"PORTFOLIO_MARKET_VALUE : {item.PORTFOLIO_MARKET_VALUE}");
+            //     Console.WriteLine($"ANNUAL_RATE            : {item.ANNUAL_RATE}");
+            //     Console.WriteLine($"DAILY_FEE              : {item.DAILY_FEE}");
+            //     Console.WriteLine($"NAV_DAYS               : {item.NAV_DAYS}");
+            //     Console.WriteLine($"ACCRUED_FEE            : {item.ACCRUED_FEE}");
+            //     Console.WriteLine($"SKIP_REASON            : {item.skipReason}");
+            // }
 
-            var result = await _payableService
-                .SaveExpensePayableAsync(payableList, entryBy);
 
-            return Ok(result);
+           var result = await _payableService
+               .SaveExpensePayableAsync(payableList, entryBy);
+
+           return Ok(result);
+           
         }
     }
 }

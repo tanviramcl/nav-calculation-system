@@ -272,11 +272,11 @@ namespace NAVCalculationSystem.Services
             AND NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0) > 0
             ORDER BY F.F_CD";
 
-            Console.WriteLine(
-                $"Executing SQL for GetAllCustodianFeeListAsync " + sql +
-                $"ExpenseTypeId={expenseTypeId}, " +
-                $"NavDate={navDate:yyyy-MM-dd}, Days={days}"
-            );
+            //   Console.WriteLine(
+            //     $"Executing SQL for GetAllCustodianFeeListAsync " + sql +
+            //   $"ExpenseTypeId={expenseTypeId}, " +
+            // $"NavDate={navDate:yyyy-MM-dd}, Days={days}"
+            //);
 
             return await conn.QueryAsync<CustodianFeeDto>(
                 sql,
@@ -340,7 +340,7 @@ namespace NAVCalculationSystem.Services
             AND NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE,0) > 0
             ORDER BY F.F_CD";
 
-            Console.WriteLine(sql);
+            //   Console.WriteLine(sql);
 
             return await conn.QueryAsync<TrusteeFeeDto>(
                 sql,
@@ -402,9 +402,86 @@ namespace NAVCalculationSystem.Services
 
         ORDER BY F.F_CD";
 
-            Console.WriteLine(sql);
+            //  Console.WriteLine(sql);
 
             return await conn.QueryAsync<AnnualFeeDto>(
+                sql,
+                new
+                {
+                    ExpenseTypeId = expenseTypeId,
+                    NavDate = navDate,
+                    Days = days
+                });
+        }
+
+        public async Task<IEnumerable<ListingFeeDto>> GetAllListingFeeListAsync(
+    int expenseTypeId,
+    DateTime navDate,
+    int days)
+        {
+            using var conn = CreateConnection();
+
+            var sql = @"
+        SELECT
+            F.F_CD AS FundCode,
+            F.F_NAME AS FundName,
+
+            NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE, 0) AS PortfolioMarketValue,
+
+            CASE
+                WHEN NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE, 0) > 1000000000 THEN 0.05
+                ELSE 0.02
+            END AS AnnualRate,
+
+            ROUND(
+                (
+                    NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE, 0)
+                    *
+                    CASE
+                        WHEN NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE, 0) > 1000000000 THEN 0.05
+                        ELSE 0.02
+                    END
+                    / 100
+                ) / 365,
+                8
+            ) AS DailyListingFee,
+
+            :Days AS NAVDays,
+
+            ROUND(
+                (
+                    NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE, 0)
+                    *
+                    CASE
+                        WHEN NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE, 0) > 1000000000 THEN 0.05
+                        ELSE 0.02
+                    END
+                    / 100
+                ) / 365 * :Days,
+                8
+            ) AS AccrueListingFee
+
+        FROM NAV.FUND F
+
+        LEFT JOIN
+        (
+            SELECT
+                NAVFUNDID AS F_CD,
+                SUM(NAVTOTALMARKETPRICE) AS PORTFOLIO_LISTED_MARKET_VALUE
+            FROM NAV.NAV_MASTER
+            WHERE NAVDATE = :NavDate
+            GROUP BY NAVFUNDID
+        ) LV
+            ON F.F_CD = LV.F_CD
+
+        WHERE F.VALID = 'Y' and F_TYPE='C'
+          AND NVL(LV.PORTFOLIO_LISTED_MARKET_VALUE, 0) > 0
+
+        ORDER BY F.F_CD";
+
+        Console.WriteLine(sql);
+
+            return await conn.QueryAsync<ListingFeeDto>(
                 sql,
                 new
                 {
@@ -453,7 +530,7 @@ namespace NAVCalculationSystem.Services
 
                 long currentId = maxId;
 
-              
+
                 var insertSql = @"
                 INSERT INTO NAV.EXPENSE_ACCRUAL_DETAILS
                 (
