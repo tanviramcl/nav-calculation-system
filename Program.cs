@@ -13,6 +13,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<PayableService>();
 builder.Services.AddScoped<ExpenseVoucherService>();
+builder.Services.AddScoped<NavCalService>();
 
 
 
