@@ -66,6 +66,13 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowCredentials();
     });
+    //  options.AddPolicy("AllowReactApp", policy =>
+    // {
+    //     policy.WithOrigins("http://localhost:3000", "http://192.168.61.52:3000","http://172.16.188.4:8088","http://172.16.188.4:8089")
+    //           .AllowAnyHeader()
+    //           .AllowAnyMethod()
+    //           .AllowCredentials();
+    // });
 });
 
 var app = builder.Build();

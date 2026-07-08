@@ -43,5 +43,29 @@ namespace NAVCalculationSystem.Controllers
                 });
             }
         }
+
+        [HttpGet("latest-price-refix")]
+        public async Task<IActionResult> GetLatestPriceRefix()
+        {
+            try
+            {
+                var data = await _navCalService.GetLatestPriceRefixAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    data
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    success = false,
+                    message = "An error occurred while retrieving latest price refix data.",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }

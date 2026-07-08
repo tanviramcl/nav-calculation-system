@@ -49,7 +49,35 @@ namespace NAVCalculationSystem.Services
 
             return result.ToList();
         }
+        public async Task<List<PriceRefixDto>> GetLatestPriceRefixAsync()
+        {
+            using var conn = CreateConnection();
+
+            const string sql = @"
+                 SELECT
+                    P.FUND_CD,
+                    P.NAV_DATE,
+                    P.REFIX_DT,
+                    P.EFFECTIVE_DATE,
+                    TO_CHAR(P.REFIX_DT,'DD-MON-YYYY') AS REFIX_DATE,
+                    TO_CHAR(P.EFFECTIVE_DATE,'DD-MON-YYYY') AS EFFECTIVE_DT,
+                    P.REFIX_SL_PR,
+                    P.REFIX_REP_PR
+                FROM UNIT.PRICE_REFIX P
+                WHERE P.NAV_DATE = (
+                    SELECT MAX(X.NAV_DATE)
+                    FROM UNIT.PRICE_REFIX X
+                    WHERE X.FUND_CD = P.FUND_CD
+                )
+                ORDER BY P.FUND_CD";
+
+            var result = await conn.QueryAsync<PriceRefixDto>(sql);
+
+            return result.ToList();
+        }
     }
+
+    
 
 
 }

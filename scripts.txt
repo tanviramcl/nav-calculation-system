@@ -84,7 +84,7 @@ ADD (
 commit;
 
 
-dotnet publish "NAVCalculationSystem.csproj" -c Release -o "E:\IAMPLC USER MANAGMENT PROJECT\Backend Build"
+dotnet publish "NAVCalculationSystem.csproj" -c Release -o "E:\Publish\nav-calulation-system-backend"
 
 
 
