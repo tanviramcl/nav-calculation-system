@@ -62,7 +62,9 @@ namespace NAVCalculationSystem.Services
                     TO_CHAR(P.REFIX_DT,'DD-MON-YYYY') AS REFIX_DATE,
                     TO_CHAR(P.EFFECTIVE_DATE,'DD-MON-YYYY') AS EFFECTIVE_DT,
                     P.REFIX_SL_PR,
-                    P.REFIX_REP_PR
+                    P.REFIX_REP_PR,
+                    P.NAV_MP,
+                    P.NAV_CP
                 FROM UNIT.PRICE_REFIX P
                 WHERE P.NAV_DATE = (
                     SELECT MAX(X.NAV_DATE)
